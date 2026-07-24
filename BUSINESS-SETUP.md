@@ -13,13 +13,46 @@ until ownership is written down, everything built is in a gray zone of "whose is
 The filing is cheap; the drama of sorting out ownership *after* the platform is valuable
 is not.
 
-## Formation checklist (assuming Wisconsin)
+## Which state? Partners can live anywhere — pick one stable anchor
 
-1. **Pick the name** and check it's free on the Wisconsin DFI (Department of Financial
-   Institutions) name search.
-2. **File Articles of Organization** online with the DFI (~$130 online as of recent
-   years; verify current fee). A partner with a Wisconsin address can be the registered
-   agent. Annual report afterward is ~$25/year.
+Members of an LLC can live in different states (or countries); that's completely
+normal. The LLC is formed in **one** state, and the only thing that state requires
+locally is a **registered agent** — a person or service with a street address there to
+receive official mail. A member's home address works; hired registered-agent services
+run ~$100/year if nobody's address is stable.
+
+Two facts that make this choice low-stakes:
+
+- **Taxes follow the partners, not the formation state.** LLC profits pass through to
+  each member, who pays income tax where *they* live, no matter where the LLC is
+  registered.
+- **Moving doesn't break anything.** A Minnesota LLC stays a Minnesota LLC while its
+  members are at school in Wisconsin or working from Chicago. If the business ever has
+  a real office or employees in another state, it registers there as a "foreign LLC"
+  (~$100 filing) — a later problem, if ever.
+
+Approximate costs in the partners' states (verify on each Secretary of State site —
+fees change):
+
+| State | Form the LLC | Ongoing |
+|---|---|---|
+| Michigan | ~$50 | ~$25/year statement |
+| Wisconsin | ~$130 online | ~$25/year report |
+| Minnesota | ~$155 online (~$135 by mail) | $0/year renewal while in good standing |
+| Illinois | ~$150 | ~$75/year report |
+
+Nowhere is formation free — Minnesota's *annual renewal* is free, which is likely the
+"free" people mention. The differences are tens of dollars, so **pick the state where
+the most stable long-term address lives** (e.g., the managing partner's permanent home)
+rather than optimizing fees. Skip Delaware/Wyoming/Nevada pitches — those matter for
+venture fundraising, and converting later is easy.
+
+## Formation checklist (same shape in any state)
+
+1. **Pick the name** and check it's free in the chosen state's business-name search.
+2. **File Articles of Organization** online with that state's Secretary of State /
+   business-filings office (fees above), listing the registered agent's in-state
+   address. Put the annual report/renewal date on the calendar the same day.
 3. **Get an EIN** from the IRS at irs.gov — free, ~15 minutes online. Never pay a
    third-party site for this.
 4. **Operating agreement — the document that actually matters.** With 3–4 partners
