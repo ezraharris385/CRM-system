@@ -1,202 +1,188 @@
-# Platform Architecture Proposal
+# Platform Architecture — Decisions and Plan
 
-*Draft for partner discussion — nothing here is final. Edit freely or leave comments.*
+*v2, updated July 2026 after partner Q&A. The first draft's open questions are now
+decisions. Still a living doc — edit freely.*
 
-## What we're deciding
+## The big decision (unchanged from v1)
 
-The firm wants to sell software applications to clients. The ideas on the table:
-
-1. A **hub of all our projects** — the "engine" that holds everything, with partner access
-   controlled by role in the firm.
-2. **Tier 1 (standard):** a client buys a bundle of apps and gets one login that opens
-   their own hub, from which they reach each app.
-3. **Tier 2 (premium):** same bundle, but the apps share data — e.g., sales comps entered
-   in an underwriting deal automatically populate a cumulative sales-tracking app.
-4. **Custom copies:** for a premium, copy a base app and tailor it to a specific client.
-5. The open question: should the hub be a purely **internal tool** where we assemble and
-   bundle, which then "ships" apps to a separate customer-facing site — or one system?
-
-## Recommendation in one paragraph
-
-Build **one platform with two faces**, not an internal tool that ships to a separate site.
-A single deployed web application contains: a shared login system, an **admin console**
-(the internal hub — only staff can see it), a **client portal** (each client's hub), and
-the apps themselves as **modules** inside the platform. "Shipping" an app to a client is
-not copying code anywhere — it's flipping a switch (an *entitlement*) that makes the app
-appear in that client's portal. Tier 2 is another switch that turns on data-sharing
-between the modules a client owns. This gives you everything in the idea list with one
-codebase, one database, and one thing to deploy and operate — which matters enormously,
-because realistically the firm has about one and a half developers.
-
-The only genuinely separate thing is the **marketing site** (how clients find and buy
-services). That can be a simple site on Webflow/Framer/plain HTML with a "Log in" button
-pointing at the platform. It needs none of this machinery.
-
-## Why not "internal tool → ship to another site"
-
-The two-system version means building: the internal hub, the customer site, and a
-pipeline that packages apps out of one and installs them into the other. That pipeline is
-the hardest of the three and delivers zero client-visible value. Every bug fix would have
-to be re-shipped to every client copy. With a small team this collapses under its own
-maintenance weight within months.
-
-The instinct behind the idea is right, though: **internal controls and client experience
-should be strictly separated.** We get that separation with roles and permissions inside
-one platform (staff see `/admin`, clients see their portal), not with two systems.
-
-## The shape
+Build **one platform with two faces**, not an internal tool that ships apps to a separate
+customer site. A single deployed web application contains: a shared sign-in system, an
+**admin console** (our internal hub — staff only), a **client portal** (each client's
+hub), and our apps as **modules** inside the platform. Giving a client an app means
+flipping a switch that makes it appear in their portal — no copying code anywhere.
+The marketing site (how clients find us) stays separate and simple: a page with a
+"Log in" button.
 
 ```mermaid
 flowchart LR
   Site[Marketing site - separate and simple] -->|Log in| Auth
-  subgraph Platform["One deployed platform - app.yourfirm.com"]
-    Auth[Shared login, orgs, roles]
-    Admin[Admin console - our internal hub]
+  subgraph Platform["One deployed platform"]
+    Auth[Sign-in, accounts, roles]
+    Admin[Admin console - our hub]
     Portal[Client portal - their hub]
     subgraph Modules["App modules"]
       CRM[CRM]
-      UW[Underwriting]
-      ST[Sales tracking]
+      UW[Deal Underwriter]
+      CT[Comps Tracker]
     end
     Bus[(Shared data + event log)]
   end
   Auth --> Admin
   Auth --> Portal
   Admin -->|manage catalog, bundles, clients| Modules
-  Portal -->|only entitled apps visible| Modules
-  Modules <-->|Tier 2 orgs only| Bus
+  Portal -->|only purchased apps visible| Modules
+  Modules <-->|Tier 2 and 3 accounts only| Bus
 ```
 
-## Core concepts
+## What we sell: three tiers
 
-| Concept | Meaning |
-|---|---|
-| **Organization** | A tenant. The firm itself is a staff org; every client is a client org. All data rows carry an `org_id` — that's what keeps clients isolated from each other. |
-| **Member + role** | A user belongs to an org with a role. Staff roles: owner, admin, operator, viewer. Client roles: admin, member. One login system serves both. |
-| **App module** | One of our products (CRM, underwriting, …). Lives in this codebase as a module with its own screens and tables, behind shared auth. Looks independent to the client. |
-| **Catalog** | The admin-console list of all modules we offer, with pricing metadata. |
-| **Bundle** | A named set of apps (e.g., "Acquisitions Starter" = CRM + Underwriting). |
-| **Entitlement** | The record that says "client org X has access to app Y (at tier Z)." The portal renders exactly the entitled apps. This *is* the product delivery mechanism. |
-| **Domain event** | When something notable happens in a module ("comp saved on deal 12"), it writes an event to a shared log. Other modules can subscribe. |
-| **Customization layer** | Per-org settings: branding, custom fields, feature flags. How we sell "custom copies" without forking code. |
+| Tier | What the client gets | Under the hood |
+|---|---|---|
+| **1 — Standard** | Their bundle of apps, one login, their own hub page | App switches per account |
+| **2 — Integrated** | Same apps, but data flows between them automatically | The platform's event log connects their apps |
+| **3 — Custom** | Integrated, plus tailoring: their branding inside the apps, custom fields, changed behavior | The customization layer (below), priced per project on top of the subscription |
 
-## Tier 1 vs Tier 2 — a pricing switch, not two architectures
+**Concrete Tier 2 example (the first one we'll build):** a client underwrites a deal in
+the Deal Underwriter and enters the sales comps that justify the value. On Tier 1, if
+they also own the Comps Tracker app, they'd have to retype those comps into it. On
+Tier 2, the comps show up in their Comps Tracker automatically the moment they're saved.
+Same apps — the platform just moves the data. Enter once, use everywhere.
 
-Because every module already lives on the same platform and database, the "master engine"
-doesn't need to be a separate system. It's the event log plus subscriptions:
+## Accounts: solo and group
 
-1. Underwriting module: user saves sales comps on a deal → module writes its own data
-   **and** publishes `comp.recorded` events.
-2. Sales-tracking module subscribes to `comp.recorded` → adds the comp to the client's
-   cumulative tracker.
-3. The subscription only runs for orgs with the **integration tier** flag on.
+Every client gets an **account**, and an account can hold one person or a whole team:
 
-So Tier 1 clients get independent apps under one login; Tier 2 clients get the same apps
-with the data flows switched on. Upgrading a client is a settings change, not a
-migration. And if some app ever truly must live elsewhere, the internal event log can be
-mirrored out as webhooks — the design has a growth path without starting there.
+- **Group account:** the main person (the account owner — e.g., the boss) signs in,
+  invites teammates by email, chooses which of the account's apps each person can open,
+  and removes people when they leave. **Data belongs to the account, not the person:**
+  in shared-data apps, everyone on the account works on the same data (comps entered by
+  an analyst show up for the boss).
+- **Solo account:** exactly the same thing with one seat. Nothing separate to build, and
+  a solo client upgrades to a team just by inviting someone.
+- Per-seat pricing is possible later (e.g., three seats included, $X per extra seat).
 
-## "Copying base models" — the customization ladder
+A third *account type* isn't needed — the "third tier" is the **Custom pricing tier**
+above, which any account, solo or group, can buy.
 
-Forked copies of a codebase are how tiny teams die: five clients on five forks means
-every fix is applied five times. Sell customization as a ladder instead, priced by rung:
+Hard rule the platform enforces everywhere: **one account can never see another
+account's data.**
 
-1. **Branding/theme** — client colors, logo, domain. Pure config.
-2. **Custom fields & terminology** — per-org field definitions ("we call deals
-   'engagements'"). Config, no code.
-3. **Feature flags** — turn module features on/off per org. Config.
-4. **Extension points** — client-specific logic at defined hooks (custom report, custom
-   calculation), kept in one folder per client in the same repo.
-5. **True fork** — last resort, only if a client pays enough to fund permanently divergent
-   maintenance. Priced like a bespoke build, because it is one.
+## Signing in
 
-Rungs 1–3 cover most "premium custom copy" sales and cost us almost nothing marginal.
+The flow we'll offer clients:
 
-## Partners, Claude accounts, and access by firm role
+1. Email (or username) + password.
+2. First time on a new computer or browser: a one-time code by text message. The device
+   is remembered after that, so the code isn't asked for every day.
+3. Phone: verify once on first sign-in, then trusted.
+4. Forgot password: self-service reset by email — clients fix their own lockouts instead
+   of calling us.
 
-The shared source of truth is a **GitHub organization** owned by the LLC, with this repo
-(and any future ones) inside it. Each partner keeps their **own GitHub account and own
-Claude account** — Claude Code operates on the shared org repos, so everyone's work lands
-in one place regardless of whose Claude subscription did it. A `CLAUDE.md` in the repo
-gives every partner's Claude sessions the same project context and conventions. (If we
-later want shared claude.ai chat Projects and centralized billing, a Claude Team plan
-does that — not required to start.)
+We will **not** build sign-in ourselves — login and account security are the most
+dangerous things to hand-build. A managed sign-in service (Clerk) provides all four
+behaviors, plus the invite-your-team flow, out of the box. Text codes cost about a penny
+each. Later, security-minded clients can switch to an authenticator app.
 
-Access by place in the firm then has two layers:
+## The first three apps (proposed — swap if the first real client needs different ones)
 
-| Person | Firm role | GitHub org role | Platform staff role |
-|---|---|---|---|
-| You | Managing partner, lead dev | Owner | Owner |
-| Intern partner | Partner, developer | Member (write) | Admin |
-| New partner | Partner, non-technical | Member (read/triage) | Operator (manage clients & bundles, no code) |
-| Professor | Advisor | Outside collaborator (read) | Viewer |
+Aimed at commercial real estate, with commercial-style residential fitting the same shapes:
 
-Plus branch protection on `main` (PRs required), 2FA required org-wide, and no secrets
-committed to the repo — ever.
+1. **CRM** — contacts, companies, properties, and a deal pipeline. Useful to every client
+   type; this repo's namesake.
+2. **Deal Underwriter** — purchase price, income and expenses, NOI, cap rate, a simple
+   rent roll, and the sales comps used to justify value.
+3. **Comps Tracker** — the account's cumulative, searchable database of sales comps
+   across all their deals.
 
-## Suggested stack (held loosely until the questions below are answered)
+First integration flow (the Tier 2 showcase): **comp saved in the Underwriter → appears
+in the Comps Tracker.**
 
-Optimize for what the coding partners already know:
+## Custom work — changing an app for one client without copying it
 
-- **If JavaScript/TypeScript:** Next.js (one app serving admin + portal + modules),
-  Postgres (Neon or Supabase — managed, backed up), Drizzle or Prisma, a managed auth
-  library (Better Auth / Auth.js / Clerk), deployed on Vercel or Render.
-- **If Python:** Django — its built-in admin gives us a big head start on the internal
-  hub, same Postgres setup, deployed on Render/Railway/Fly.
+Decisions:
 
-Either way: **one deployable app, one managed Postgres database**, row-level tenancy by
-`org_id`, an `audit_log` table from day one (B2B clients ask), Stripe later when billing
-is real. Roughly $0–50/month until there's real traffic.
+- **Theming is built in from day one.** Every screen reads its logo and colors from
+  account settings. Default is our brand; Tier 3 clients get theirs. (Cheap to build
+  now, painful to retrofit later.)
+- **Changing how an app works for one client never means copying the app.** Every client
+  runs the same base app; the differences live in per-account settings the base app
+  reads:
+  - **Feature switches** — parts of an app turned on or off per account.
+  - **Custom fields and wording** — their extra fields, their terminology.
+  - **Extension points** — for genuine behavior changes, the base app has defined
+    moments where it asks "does this account have custom logic here?" and runs it. Each
+    client's custom pieces live in one clearly-marked folder in this same repo. When we
+    improve the base app, **every client gets the improvement automatically**, and their
+    customizations ride along untouched — which is exactly the "change it without
+    changing the base app" requirement.
+  - A fully separate copy is the last resort, priced like a bespoke build — because
+    that's what it becomes.
 
-## Phased plan — the massive version is the destination, not the starting point
+## The data we'll hold, and how it's protected
 
-Each phase ends with something a real client could use.
+What these apps will store: property addresses and photos, purchase prices and deal
+terms, rent rolls, income and expense statements, cap rates and comps, pipeline notes,
+and client teams' names, emails, and phone numbers. Residential work may add tenant
+names and contact info (personal data). Nothing heavily regulated (no health or card
+data), but all of it is confidential business information, so these defaults are on from
+day one: encrypted managed database with daily backups, strict account separation,
+text-code sign-in, and an audit log (who did what, when). This is what a client's IT
+person wants to hear, and it costs us almost nothing because managed services provide it.
 
-- **Phase 0 — Foundations.** Login, organizations, roles, admin console skeleton, and the
-  **CRM as the first module**, end to end. *Done when one pilot client logs in and uses
-  the CRM for real work.*
-- **Phase 1 — Catalog & bundles.** Second module, app catalog, entitlements, the client
-  portal hub page. *Done when a client sees exactly the apps in their bundle and nothing
-  else.* (Tier 1 now exists.)
-- **Phase 2 — Integration tier.** Event log + first cross-module flow (underwriting comp
-  → sales tracker), gated by the tier flag. *Done when flipping the flag for one org
-  makes data flow.* (Tier 2 now exists.)
-- **Phase 3 — Customization layer.** Per-org theming, custom fields, feature flags.
-  *(The "premium custom copy" offering now exists.)*
+## The stack (decided)
+
+Chosen for a team whose coding is AI-assisted — both developers are new to code — so the
+priority is the most mainstream tools with the most guardrails, where the dangerous
+parts are managed services rather than our own code:
+
+- **Next.js + TypeScript** — one app serving the admin console, client portal, and all
+  modules. The most widely documented web stack there is.
+- **Clerk** — sign-in, group accounts and invites, text codes, remembered devices.
+- **Neon Postgres + Drizzle** — managed database, backups included.
+- **Vercel** — hosting, with a staging environment and a production environment.
+- **Stripe** — later, when billing is real.
+
+Roughly $0–75/month until there's real traffic. Every service account gets created under
+the LLC (a shared LLC email), never under someone's personal email.
+
+## How we'll build (guardrails for an AI-assisted team)
+
+- All changes go through Claude Code on this repo via pull requests — nobody edits the
+  live site directly.
+- `CLAUDE.md` holds the conventions so every partner's sessions build the same way.
+- Staging is where we try things; clients only ever touch production.
+- Never test with a real client's data.
+- The account-separation rule gets automated tests before anything else does.
+
+## Phases — each ends with something a real client could use
+
+- **Phase 0 — Foundations.**
+  *Setup (partners):* create the LLC's GitHub organization and move this repo into it;
+  create Vercel, Clerk, and Neon accounts under the LLC; buy the domain when named.
+  *Build:* sign-in, accounts and roles, admin console skeleton, and the **CRM module end
+  to end.* Done when one pilot client logs in and uses the CRM for real work.*
+- **Phase 1 — Catalog and bundles.** Second module, the app catalog, per-account app
+  switches, the client portal hub page. *Done when a client sees exactly the apps they
+  bought and nothing else.* (Tier 1 exists.)
+- **Phase 2 — Integration.** The event log and the comps flow (Underwriter → Comps
+  Tracker), turned on per account. *Done when flipping the switch for one account makes
+  data flow.* (Tier 2 exists.)
+- **Phase 3 — Customization layer.** Per-account theming, custom fields, feature
+  switches, first extension point. (Tier 3 exists.)
 
 Onboard the first clients by hand — no self-serve signup, no automated billing. Sell
 manually, automate what hurts.
 
 ## Deliberately not building now
 
-- A separate customer-facing product or an app-shipping pipeline (covered by entitlements).
-- Microservices / separately deployed apps (modules give the same boundaries at 1/10 the cost).
-- Self-serve signup and payments (manual onboarding first).
-- Automated code-forking for custom clients (the ladder replaces it).
+- A separate customer-facing product or an app-shipping pipeline (the app switches cover it).
+- Separately deployed apps/microservices (modules give the same boundaries at a tenth the cost).
+- Self-serve signup and payments.
+- Automated code-copying for custom clients (the customization layer replaces it).
 
-## Open questions for the partners
+## Still open (none of these block Phase 0)
 
-Answers to these change the design, so they come before code:
-
-1. **First client & first apps.** Who realistically is the first paying client, and which
-   apps do they need? The examples (underwriting, sales comps, cumulative sales tracking)
-   sound like commercial real estate — what are the first three modules, concretely? Is
-   the CRM one of them?
-2. **Tier 2's first data flow.** Which specific piece of data flowing from which app to
-   which app would a client pay extra for first? (This defines the shared entities.)
-3. **How custom is "custom"?** For the premium copies: branding + custom fields + toggled
-   features, or genuinely different logic per client? What's the most extreme
-   customization we'd ever promise?
-4. **Coding capacity & stack.** Is it just you writing code, or you + the intern partner?
-   What do you each already know (JS/React? Python? neither)? The stack should follow
-   that answer.
-5. **Client shape.** Do client companies bring multiple users (teams) or is it one person
-   per client? Will any client demand their data be fully separated from other clients'
-   (some firms do — affects tenancy design)?
-6. **Data sensitivity.** Will these apps hold financials or personal data that would make
-   a client's IT/security team ask questions (security reviews, SOC 2)? Not urgent, but
-   it argues for managed auth + audit logs from the start.
-7. **Money & time.** Comfortable with ~$50/month hosting? When do you want a pilot client
-   using Phase 0 — this semester, this year?
-8. **Operations.** Who answers when a client is locked out at 9pm? (Determines how much
-   self-service and admin tooling to build vs. handling things manually.)
+1. Confirm or swap the three starter apps once the first real client is in view.
+2. Product name and domain (a placeholder is fine to start).
+3. Price points for the three tiers — business decision for the partners.
+4. Create the LLC-owned GitHub organization and set each partner's access there.
