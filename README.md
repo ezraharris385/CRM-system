@@ -7,7 +7,9 @@ and use the apps they've purchased.
 Nothing is built yet. Start with the proposal:
 
 - **[ARCHITECTURE-PROPOSAL.md](./ARCHITECTURE-PROPOSAL.md)** — recommended shape of the
-  system, how the two pricing tiers work, how partner access works, a phased build plan,
-  and the open questions we need to answer before writing code.
+  system, the three pricing tiers, accounts and sign-in, the app catalog, a phased build
+  plan, and the remaining open items.
+- **[BUSINESS-SETUP.md](./BUSINESS-SETUP.md)** — LLC formation checklist, how to handle
+  out-of-pocket startup costs, and the accounting setup.
 
 This doc is meant to be discussed and edited by all partners, including non-technical ones.
