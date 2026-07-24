@@ -24,6 +24,7 @@ flowchart LR
       CRM[CRM]
       UW[Deal Underwriter]
       CT[Comps Tracker]
+      More[Later - Waterfall, 3D and maps]
     end
     Bus[(Shared data + event log)]
   end
@@ -47,6 +48,11 @@ the Deal Underwriter and enters the sales comps that justify the value. On Tier 
 they also own the Comps Tracker app, they'd have to retype those comps into it. On
 Tier 2, the comps show up in their Comps Tracker automatically the moment they're saved.
 Same apps — the platform just moves the data. Enter once, use everywhere.
+
+More flows on the same machinery as the catalog grows: a deal finished in the
+Underwriter feeds the Equity Waterfall's assumptions; a comp entered anywhere gets
+pinned on the map automatically; a property's details feed its 3D massing view. Every
+new flow is another switch on the same event log — never a new system.
 
 ## Accounts: solo and group
 
@@ -83,9 +89,10 @@ dangerous things to hand-build. A managed sign-in service (Clerk) provides all f
 behaviors, plus the invite-your-team flow, out of the box. Text codes cost about a penny
 each. Later, security-minded clients can switch to an authenticator app.
 
-## The first three apps (proposed — swap if the first real client needs different ones)
+## The app catalog
 
-Aimed at commercial real estate, with commercial-style residential fitting the same shapes:
+**Starter three (confirmed):** aimed at commercial real estate, with commercial-style
+residential fitting the same shapes:
 
 1. **CRM** — contacts, companies, properties, and a deal pipeline. Useful to every client
    type; this repo's namesake.
@@ -96,6 +103,38 @@ Aimed at commercial real estate, with commercial-style residential fitting the s
 
 First integration flow (the Tier 2 showcase): **comp saved in the Underwriter → appears
 in the Comps Tracker.**
+
+**Next up (partner-led):**
+
+4. **Equity Waterfall** — GP/LP splits, preferred return, promote tiers, IRR hurdles,
+   distribution schedules. Pairs naturally with the Underwriter: on integrated
+   accounts, a deal's numbers feed the waterfall's assumptions automatically.
+5. **3D Building & Maps** — start with what sells and ships: properties and comps
+   plotted on interactive maps, then simple 3D massing views of a building on its
+   parcel. A full 3D modeling tool is the most technically ambitious item in the
+   catalog — grow into it in stages rather than promising CAD on day one.
+
+A module is the unit of ownership: once the platform skeleton exists, any partner can
+build a module end to end with their own Claude account — sign-in, accounts, theming,
+and data isolation come from the platform for free.
+
+## Phones vs computers: one platform, sized to the device
+
+Not two separate apps. The platform is one responsive web app that resizes to the
+screen, and clients can install it on a phone home screen so it opens and feels like an
+app — no app store involved. What differs by device is the *experience per module*:
+
+| Module | On a computer | On a phone |
+|---|---|---|
+| CRM | Full pipeline | Full — built for use in the field |
+| Comps Tracker | Entry and analysis | Quick lookup and photo capture |
+| Deal Underwriter | The full tool | Read-only deal summary |
+| Equity Waterfall | The full tool | Read-only distribution summary |
+| 3D Building & Maps | Full maps and 3D | Maps yes; 3D viewing only |
+
+Separate App Store / Play Store apps are deliberately later: they would double the work
+for a small team, and everything above works in the browser. Revisit only if clients
+demand push notifications or offline use.
 
 ## Custom work — changing an app for one client without copying it
 
@@ -129,6 +168,13 @@ day one: encrypted managed database with daily backups, strict account separatio
 text-code sign-in, and an audit log (who did what, when). This is what a client's IT
 person wants to hear, and it costs us almost nothing because managed services provide it.
 
+**Uploaded documents.** Clients will upload confidential files — rent rolls, T-12s,
+offering memos, leases. Rules from day one: files live in private, encrypted storage
+(never a public bucket) and belong to the client's account like any other data; a file
+is only reachable through short-lived links the platform hands to signed-in members of
+that account; uploads are limited by file type and size; every view and download lands
+in the audit log. Virus scanning gets added when upload volume justifies it.
+
 ## The stack (decided)
 
 Chosen for a team whose coding is AI-assisted — both developers are new to code — so the
@@ -150,6 +196,8 @@ the LLC (a shared LLC email), never under someone's personal email.
 - All changes go through Claude Code on this repo via pull requests — nobody edits the
   live site directly.
 - `CLAUDE.md` holds the conventions so every partner's sessions build the same way.
+- Each app module has one owning partner; the platform core (sign-in, accounts, data
+  isolation) changes only by agreement between the developing partners.
 - Staging is where we try things; clients only ever touch production.
 - Never test with a real client's data.
 - The account-separation rule gets automated tests before anything else does.
@@ -182,7 +230,6 @@ manually, automate what hurts.
 
 ## Still open (none of these block Phase 0)
 
-1. Confirm or swap the three starter apps once the first real client is in view.
-2. Product name and domain (a placeholder is fine to start).
-3. Price points for the three tiers — business decision for the partners.
-4. Create the LLC-owned GitHub organization and set each partner's access there.
+1. Product name and domain (a placeholder is fine to start).
+2. Price points for the three tiers — business decision for the partners.
+3. Create the LLC-owned GitHub organization and set each partner's access there.
